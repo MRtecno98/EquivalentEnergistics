@@ -47,6 +47,12 @@ repositories {
         name 'CurseForge'
         url "https://minecraft.curseforge.com/api/maven/"
     }
+    ivy {
+        name 'AppEng'
+        ivyPattern "https://maven.tterrag.com/[module]-[revision].[ext]"
+        artifactPattern "http://media.forgecdn.net/files/${ae2_cf}/[module]-[revision].[ext]"
+    }
+
 }
 
 
