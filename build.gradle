@@ -1,7 +1,9 @@
 buildscript {
     repositories {
         jcenter()
-        maven { url = "http://files.minecraftforge.net/maven" }
+        maven { 
+			url = "http://files.minecraftforge.net/maven"
+		}
     }
     dependencies {
         classpath 'net.minecraftforge.gradle:ForgeGradle:2.3-SNAPSHOT'
@@ -9,6 +11,7 @@ buildscript {
 }
 
 apply plugin: 'net.minecraftforge.gradle.forge'
+apply plugin: 'eclipse'
 
 version = "${mod_version}"
 group= "com.mordenkainen.equivalentenergistics" // http://maven.apache.org/guides/mini/guide-naming-conventions.html
@@ -17,6 +20,13 @@ archivesBaseName = "EquivalentEnergistics-${minecraft_version}-${pe_rawversion}-
 sourceCompatibility = targetCompatibility = '1.8' // Need this here so eclipse task generates correctly.
 compileJava {
     sourceCompatibility = targetCompatibility = '1.8'
+}
+
+eclipse {
+    classpath {
+        downloadJavadoc = true
+        downloadSources = true
+    }
 }
 
 minecraft {
@@ -41,18 +51,23 @@ repositories {
         name 'tterrag maven'
         url "http://maven.tterrag.com/"
     }
-    maven {url "http://tehnut.info/maven"}
+	
+	maven {
+		name 'tecno-repo'
+		url 'https://repo.mrtecno.tk/repository/public-maven/'
+	}
+    
+	// maven {url "http://tehnut.info/maven"}
+	
+	maven {
+        name "Modmaven"
+        url "https://modmaven.dev/"
+    }
 
     maven {
         name 'CurseForge'
         url "https://minecraft.curseforge.com/api/maven/"
     }
-    ivy {
-        name 'AppEng'
-        ivyPattern "https://maven.tterrag.com/[module]-[revision].[ext]"
-        artifactPattern "http://media.forgecdn.net/files/${ae2_cf}/[module]-[revision].[ext]"
-    }
-
 }
 
 
