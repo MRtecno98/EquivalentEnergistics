@@ -7,22 +7,28 @@ import javax.annotation.Nonnull;
 import com.mordenkainen.equivalentenergistics.blocks.ModBlocks;
 import com.mordenkainen.equivalentenergistics.blocks.condenser.CondenserState;
 import com.mordenkainen.equivalentenergistics.core.config.EqEConfig;
+import com.mordenkainen.equivalentenergistics.integration.ae2.grid.GridAccessException;
 import com.mordenkainen.equivalentenergistics.integration.ae2.grid.GridUtils;
+import com.mordenkainen.equivalentenergistics.integration.ae2.storagechannel.IAEEMCStack;
+import com.mordenkainen.equivalentenergistics.integration.ae2.storagechannel.IEMCStorageChannel;
 import com.mordenkainen.equivalentenergistics.integration.ae2.tiles.TileAEBase;
 import com.mordenkainen.equivalentenergistics.items.ModItems;
 import com.mordenkainen.equivalentenergistics.util.CommonUtils;
 import com.mordenkainen.equivalentenergistics.util.IDropItems;
 import com.mordenkainen.equivalentenergistics.util.InvUtils;
 
+import appeng.api.AEApi;
 import appeng.api.config.Actionable;
 import appeng.api.config.PowerMultiplier;
 import appeng.api.networking.GridFlags;
 import appeng.api.networking.IGridNode;
+import appeng.api.networking.storage.IStorageGrid;
 import appeng.api.networking.ticking.IGridTickable;
 import appeng.api.networking.ticking.TickRateModulation;
 import appeng.api.networking.ticking.TickingRequest;
 import moze_intel.projecte.api.ProjectEAPI;
 import moze_intel.projecte.api.item.IItemEmc;
+import moze_intel.projecte.api.tile.IEmcAcceptor;
 import net.minecraft.item.Item;
 import net.minecraft.item.ItemStack;
 import net.minecraft.nbt.NBTTagCompound;
@@ -34,7 +40,7 @@ import net.minecraftforge.items.CapabilityItemHandler;
 import net.minecraftforge.items.ItemHandlerHelper;
 import net.minecraftforge.items.ItemStackHandler;
 
-public class TileEMCCondenser extends TileAEBase implements IGridTickable, IDropItems {
+public class TileEMCCondenser extends TileAEBase implements IGridTickable, IDropItems, IEmcAcceptor {
 
     private final static String STATE_TAG = "state";
 
@@ -297,5 +303,42 @@ public class TileEMCCondenser extends TileAEBase implements IGridTickable, IDrop
             return true;
         }
     }
+
+	@Override
+	public long getMaximumEmc() {
+		return Long.MAX_VALUE;
+	}
+
+	@Override
+	public long getStoredEmc() {
+		try {
+			// from EMCCrystalHandler#getCurrentEMC
+			// This codebase is a dumpster fire help me
+			final IEMCStorageChannel emcChannel = AEApi.instance().storage().getStorageChannel(IEMCStorageChannel.class);
+			IStorageGrid storageGrid = (IStorageGrid) getProxy().getGrid().getCache(IStorageGrid.class);
+	        final IAEEMCStack emcStack = storageGrid.getInventory(emcChannel).getStorageList().findPrecise(emcChannel.createStack(1));
+	        return emcStack == null ? 0 : emcStack.getEMCValue();
+		} catch (GridAccessException e) {
+			throw new RuntimeException(e);
+		}
+	}
+
+	@Override
+	public long acceptEMC(EnumFacing face, long emcToStore) {
+		final long amountStored = GridUtils.injectEMC(getProxy(), emcToStore, Actionable.SIMULATE, mySource);
+        if (amountStored == 0) {
+            return 0;
+        }
+        
+        final double powerRequired = emcToStore * EqEConfig.emcCondenser.powerPerEMC;
+        final double powerAvail = GridUtils.extractAEPower(getProxy(), powerRequired, Actionable.SIMULATE, PowerMultiplier.CONFIG);
+        
+        emcToStore = (long) Math.min(emcToStore, Math.floor(powerAvail / EqEConfig.emcCondenser.powerPerEMC));
+        
+        GridUtils.extractAEPower(getProxy(), emcToStore * EqEConfig.emcCondenser.powerPerEMC, Actionable.MODULATE, PowerMultiplier.CONFIG);
+        GridUtils.injectEMC(getProxy(), emcToStore, Actionable.MODULATE, mySource);
+
+        return emcToStore;
+	}
 
 }
